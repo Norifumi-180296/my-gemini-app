@@ -18,27 +18,29 @@ if not api_key:
     st.stop()
 
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel("gemini-2.5-flash")
+
+# 最新のgemini-3.6-flashモデルを指定
+model = genai.GenerativeModel("gemini-3.6-flash")
 
 GAS_URL = "https://script.google.com/macros/s/AKfycbx7C4RBJp0wqQDVYTZ5VJ8PC4O-DFg47juiajov8aUz95kGZulEQq4dBohbatP1akLWFA/exec"
 
 st.write("### 1. 下のカメラで「録画開始」を押して動作を撮影してください")
 
-# レイアウト崩れを完全に防ぐ省スペース型WebRTCカメラコンポーネント
+# 省スペース＆ボタン最上部配置のカメラコンポーネント
 html_code = """
 <div style="text-align: center; font-family: sans-serif; background-color: #f0f2f6; padding: 10px; border-radius: 10px;">
-    <!-- 1. 操作ボタンを一番上に配置して見切れを100%防止 -->
+    <!-- 1. 操作ボタン -->
     <div style="margin-bottom: 10px;">
         <button id="startBtn" onclick="startRecording()" style="padding: 10px 20px; font-size: 15px; font-weight: bold; background-color: #ff4b4b; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">🔴 録画開始</button>
         <button id="stopBtn" onclick="stopRecording()" disabled style="padding: 10px 20px; font-size: 15px; font-weight: bold; background-color: #777; color: white; border: none; border-radius: 5px; cursor: pointer;">⬛ 録画停止</button>
     </div>
 
-    <!-- 2. 保存ボタン（録画停止後に一番目立つ位置に出現） -->
+    <!-- 2. 保存ボタン -->
     <div style="margin-bottom: 12px; min-height: 45px;">
         <a id="downloadLink" style="display:none; padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: #0066cc; color: white; text-decoration: none; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">💾 録画した動画を保存（クリック）</a>
     </div>
 
-    <!-- 3. カメラプレビュー画面（サイズをコンパクトに制限） -->
+    <!-- 3. カメラプレビュー画面 -->
     <video id="preview" width="320" height="240" autoplay playsinline muted style="background: #000; border-radius: 8px; object-fit: cover;"></video>
     <video id="recorded" width="320" height="240" controls style="display: none; border-radius: 8px; object-fit: cover; margin: 0 auto;"></video>
 </div>
@@ -104,7 +106,6 @@ function stopRecording() {
 </script>
 """
 
-# 高さ枠を十分に大きく確保（550px）
 st.components.v1.html(html_code, height=550)
 
 st.write("---")
