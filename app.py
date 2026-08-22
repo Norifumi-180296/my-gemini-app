@@ -18,26 +18,29 @@ if not api_key:
     st.stop()
 
 genai.configure(api_key=api_key)
-
-# 動作・動画解析に最適な最新Flashモデルを設定
 model = genai.GenerativeModel("gemini-2.5-flash")
 
 GAS_URL = "https://script.google.com/macros/s/AKfycbx7C4RBJp0wqQDVYTZ5VJ8PC4O-DFg47juiajov8aUz95kGZulEQq4dBohbatP1akLWFA/exec"
 
 st.write("### 1. 下のカメラで「録画開始」を押して動作を撮影してください")
 
-# HTML5/WebRTC カメラ録画コンポーネント（高さ720pxに拡大）
+# レイアウト崩れを完全に防ぐ省スペース型WebRTCカメラコンポーネント
 html_code = """
-<div style="text-align: center; font-family: sans-serif; background-color: #f9f9f9; padding: 15px; border-radius: 10px;">
-    <video id="preview" width="100%" height="auto" autoplay playsinline muted style="max-width: 480px; background: #000; border-radius: 8px;"></video><br><br>
-    <button id="startBtn" onclick="startRecording()" style="padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: #ff4b4b; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 15px;">🔴 録画開始</button>
-    <button id="stopBtn" onclick="stopRecording()" disabled style="padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: #777; color: white; border: none; border-radius: 5px; cursor: pointer;">⬛ 録画停止</button>
-    <br><br>
-    <video id="recorded" width="100%" height="auto" controls style="max-width: 480px; display: none; border-radius: 8px; margin: 0 auto;"></video>
-    <br>
-    <div style="margin-top: 15px;">
-        <a id="downloadLink" style="display:none; padding: 14px 28px; font-size: 18px; font-weight: bold; background-color: #0066cc; color: white; text-decoration: none; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">💾 録画した動画を保存（ここをクリック）</a>
+<div style="text-align: center; font-family: sans-serif; background-color: #f0f2f6; padding: 10px; border-radius: 10px;">
+    <!-- 1. 操作ボタンを一番上に配置して見切れを100%防止 -->
+    <div style="margin-bottom: 10px;">
+        <button id="startBtn" onclick="startRecording()" style="padding: 10px 20px; font-size: 15px; font-weight: bold; background-color: #ff4b4b; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">🔴 録画開始</button>
+        <button id="stopBtn" onclick="stopRecording()" disabled style="padding: 10px 20px; font-size: 15px; font-weight: bold; background-color: #777; color: white; border: none; border-radius: 5px; cursor: pointer;">⬛ 録画停止</button>
     </div>
+
+    <!-- 2. 保存ボタン（録画停止後に一番目立つ位置に出現） -->
+    <div style="margin-bottom: 12px; min-height: 45px;">
+        <a id="downloadLink" style="display:none; padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: #0066cc; color: white; text-decoration: none; border-radius: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">💾 録画した動画を保存（クリック）</a>
+    </div>
+
+    <!-- 3. カメラプレビュー画面（サイズをコンパクトに制限） -->
+    <video id="preview" width="320" height="240" autoplay playsinline muted style="background: #000; border-radius: 8px; object-fit: cover;"></video>
+    <video id="recorded" width="320" height="240" controls style="display: none; border-radius: 8px; object-fit: cover; margin: 0 auto;"></video>
 </div>
 
 <script>
@@ -61,6 +64,7 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: true })
 function startRecording() {
     recordedChunks = [];
     recorded.style.display = 'none';
+    preview.style.display = 'inline-block';
     downloadLink.style.display = 'none';
     
     const options = { mimeType: 'video/webm' };
@@ -76,7 +80,8 @@ function startRecording() {
         const blob = new Blob(recordedChunks, { type: 'video/webm' });
         const url = URL.createObjectURL(blob);
         recorded.src = url;
-        recorded.style.display = 'block';
+        preview.style.display = 'none';
+        recorded.style.display = 'inline-block';
         
         downloadLink.href = url;
         downloadLink.download = 'recorded_video.webm';
@@ -99,8 +104,8 @@ function stopRecording() {
 </script>
 """
 
-# 表示領域を見切れ防止用に拡大
-st.components.v1.html(html_code, height=720)
+# 高さ枠を十分に大きく確保（550px）
+st.components.v1.html(html_code, height=550)
 
 st.write("---")
 st.write(
@@ -121,15 +126,12 @@ if uploaded_file is not None:
                 f.write(uploaded_file.getbuffer())
 
             try:
-                # Gemini File APIへアップロード
                 uploaded_gemini = genai.upload_file(path=temp_filename)
 
-                # ファイル処理の完了待機
                 while uploaded_gemini.state.name == "PROCESSING":
                     time.sleep(2)
                     uploaded_gemini = genai.get_file(uploaded_gemini.name)
 
-                # 動作と経過時間の詳細プロンプト
                 prompt = """
                 この動画を詳細に分析し、以下の形式でレポートしてください：
 
@@ -162,7 +164,6 @@ if uploaded_file is not None:
                 else:
                     st.error(f"スプレッドシート送信失敗 (Status: {res.status_code})")
 
-                # クリーンアップ処理
                 genai.delete_file(uploaded_gemini.name)
                 if os.path.exists(temp_filename):
                     os.remove(temp_filename)
